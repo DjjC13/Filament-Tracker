@@ -1,6 +1,7 @@
 import os
 import json
 import uuid
+import subprocess
 from functools import wraps
 from threading import Lock
 from flask import (
@@ -13,7 +14,7 @@ from flask import (
     jsonify,
     abort,
 )
-from datetime import date
+from datetime import date, datetime
 
 
 APP_PASSWORD = os.getenv("APP_PASSWORD", "changeme")
@@ -35,6 +36,24 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
 
 _file_lock = Lock()
+
+
+def _get_git_build_info():
+    repo_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        short_hash = subprocess.check_output(
+            ["git", "-C", repo_dir, "rev-parse", "--short", "HEAD"],
+            text=True,
+        ).strip()
+        commit_iso = subprocess.check_output(
+            ["git", "-C", repo_dir, "show", "-s", "--format=%cI", "HEAD"],
+            text=True,
+        ).strip()
+        commit_dt = datetime.fromisoformat(commit_iso.replace("Z", "+00:00"))
+        commit_date = f"{commit_dt.strftime('%B')} {commit_dt.day}, {commit_dt.year}"
+        return {"version": short_hash, "date": commit_date}
+    except Exception:
+        return {"version": "unknown", "date": "unknown"}
 
 
 def _read_data():
@@ -81,10 +100,13 @@ def logout():
 @app.route("/")
 @login_required
 def index():
+    build = _get_git_build_info()
     return render_template(
         "index.html",
         material_types=MATERIAL_TYPES,
         users=USERS,
+        build_version=build["version"],
+        build_date=build["date"],
     )
 
 

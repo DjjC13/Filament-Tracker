@@ -192,6 +192,23 @@
     </div>
   </div>
 
+  <aside class="coffee-fab" aria-label="Version and credits">
+    <button class="coffee-fab-btn" type="button" aria-describedby="coffeeFabTooltip">
+      <svg viewBox="0 0 64 64" class="coffee-icon" aria-hidden="true">
+        <path d="M22 14c0-4 3-7 7-7s7 3 7 7" />
+        <path d="M14 18h36l-3 30a8 8 0 0 1-8 7H25a8 8 0 0 1-8-7z" />
+        <path d="M50 24h3a7 7 0 0 1 0 14h-2" />
+        <path d="M22 55h20" />
+      </svg>
+    </button>
+    <div id="coffeeFabTooltip" class="coffee-fab-tip" role="note">
+      <div><b>Version:</b> {{ build_version }}</div>
+      <div><b>Date:</b> {{ build_date }}</div>
+      <div><b>Credits:</b> DjjC13 - Doug Calvert</div>
+      <a href="https://www.buymeacoffee.com/djjc13" target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
+    </div>
+  </aside>
+
   <script>
     window.APP_META = {
       materialTypes: {{ material_types|tojson }},

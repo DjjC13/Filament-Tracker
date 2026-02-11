@@ -880,3 +880,79 @@ input[type="color"]::-webkit-color-swatch-wrapper {
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, var(--accent-strong), #9b4dff);
 }
+
+.coffee-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 500;
+}
+
+.coffee-fab-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(145deg, rgba(8, 15, 32, 0.95), rgba(18, 30, 56, 0.95));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  color: var(--warn);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.coffee-fab-btn:hover,
+.coffee-fab-btn:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.42);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.62);
+  outline: none;
+}
+
+.coffee-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.coffee-icon path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.coffee-fab-tip {
+  position: absolute;
+  right: 0;
+  bottom: 62px;
+  min-width: 230px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(5, 10, 20, 0.96);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.58);
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.coffee-fab-tip a {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--highlight);
+  text-decoration: underline;
+}
+
+.coffee-fab:hover .coffee-fab-tip,
+.coffee-fab:focus-within .coffee-fab-tip {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
