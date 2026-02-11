@@ -247,13 +247,14 @@ h3 {
 
 .search-bar {
   flex-wrap: nowrap;
-  max-width: 360px;
-  width: 100%;
+  width: auto;
+  justify-content: flex-end;
+  flex: 0 0 auto;
 }
 
 .search-bar .input {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 0 0 220px;
+  min-width: 220px;
   height: 42px;
 }
 
@@ -262,9 +263,80 @@ h3 {
   height: 42px;
 }
 
+.toggle-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: auto;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.toggle-inline input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.search-bar input[type="color"] {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  border-radius: 10px;
+}
+
+.search-bar input[type="range"] {
+  width: 120px;
+  min-width: 120px;
+  margin: 0;
+  accent-color: var(--accent);
+  height: 24px;
+  padding: 0;
+}
+
+.compact-toggle {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.color-filter-controls {
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  max-width: 230px;
+  opacity: 1;
+  transform: translateX(0);
+  transform-origin: left center;
+  transition:
+    max-width 220ms ease,
+    opacity 180ms ease,
+    transform 220ms ease;
+}
+
+.color-filter-controls.hidden {
+  max-width: 0;
+  opacity: 0;
+  transform: translateX(8px);
+  pointer-events: none;
+}
+
+.sensitivity-value {
+  min-width: 42px;
+  text-align: right;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--highlight);
+}
+
 .space {
   justify-content: space-between;
   align-items: flex-start;
+}
+
+.spools-header {
+  flex-wrap: nowrap;
 }
 
 .btn {
@@ -519,6 +591,32 @@ label textarea {
   .actions .row {
     flex-wrap: wrap;
   }
+  .search-bar {
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
+    flex: 1 1 100%;
+  }
+  .spools-header {
+    flex-wrap: wrap;
+  }
+  .search-bar .input {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .search-bar input[type="range"] {
+    width: 100%;
+    min-width: 0;
+  }
+  .color-filter-controls {
+    max-width: 100%;
+    width: 100%;
+  }
+  .sensitivity-value {
+    text-align: left;
+  }
 }
 
 .list {
@@ -748,6 +846,12 @@ input[type="color"] {
   padding: 0;
   height: 46px;
   cursor: pointer;
+}
+
+input[type="color"]:disabled,
+input[type="range"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 input[type="color"]::-webkit-color-swatch {

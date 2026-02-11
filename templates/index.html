@@ -48,7 +48,7 @@
     </section>
 
     <section class="card">
-      <div class="row space">
+      <div class="row space spools-header">
         <div>
           <h2>Spools</h2>
           <p class="muted small">Search, update, and quote from every filament spool you own.</p>
@@ -56,6 +56,15 @@
         </div>
         <div class="row search-bar">
           <input id="search" class="input" placeholder="Search..." />
+          <label class="toggle-inline compact-toggle" for="colorFilterEnabled" title="Enable fuzzy color search">
+            <input type="checkbox" id="colorFilterEnabled" />
+            Colour Match
+          </label>
+          <div id="colorFilterControls" class="row color-filter-controls">
+            <input type="color" id="filterColorPicker" value="#ffff00" title="Pick a color" />
+            <input type="range" id="colorSensitivity" min="0" max="100" value="50" title="Color sensitivity" />
+            <div id="colorSensitivityValue" class="sensitivity-value">50%</div>
+          </div>
           <button id="btnRefresh" class="btn">Refresh</button>
         </div>
       </div>

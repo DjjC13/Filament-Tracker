@@ -2,6 +2,98 @@ let SPOOLS = [];
 
 function el(id) { return document.getElementById(id); }
 
+function normalizeHex(hex) {
+  const v = String(hex || "").trim().toLowerCase();
+  if (!v.startsWith("#")) return null;
+  if (v.length === 4) {
+    return `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`;
+  }
+  if (v.length === 7) return v;
+  return null;
+}
+
+function hexToRgb(hex) {
+  const norm = normalizeHex(hex);
+  if (!norm) return null;
+  const intVal = Number.parseInt(norm.slice(1), 16);
+  if (Number.isNaN(intVal)) return null;
+  return {
+    r: (intVal >> 16) & 255,
+    g: (intVal >> 8) & 255,
+    b: intVal & 255
+  };
+}
+
+function rgbToHsl(r, g, b) {
+  const rr = r / 255;
+  const gg = g / 255;
+  const bb = b / 255;
+
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const d = max - min;
+  const l = (max + min) / 2;
+  let h = 0;
+  let s = 0;
+
+  if (d !== 0) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    switch (max) {
+      case rr:
+        h = 60 * (((gg - bb) / d) % 6);
+        break;
+      case gg:
+        h = 60 * ((bb - rr) / d + 2);
+        break;
+      default:
+        h = 60 * ((rr - gg) / d + 4);
+        break;
+    }
+  }
+
+  if (h < 0) h += 360;
+  return { h, s, l };
+}
+
+function hexToHsl(hex) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return null;
+  return rgbToHsl(rgb.r, rgb.g, rgb.b);
+}
+
+function hueDistance(h1, h2) {
+  const d = Math.abs(h1 - h2);
+  return Math.min(d, 360 - d);
+}
+
+function colorDistance(hexA, hexB) {
+  const a = hexToHsl(hexA);
+  const b = hexToHsl(hexB);
+  if (!a || !b) return Number.POSITIVE_INFINITY;
+
+  const hueDelta = hueDistance(a.h, b.h) / 180;
+  const satDelta = Math.abs(a.s - b.s);
+  const lightDelta = Math.abs(a.l - b.l);
+
+  return Math.sqrt(
+    (hueDelta * 1.5) ** 2 +
+    (satDelta * 0.8) ** 2 +
+    (lightDelta * 0.7) ** 2
+  );
+}
+
+function colorThresholdFromSensitivity(sensitivity) {
+  const s = Math.max(0, Math.min(100, Number(sensitivity) || 0)) / 100;
+  return 0.04 + (s * 0.92);
+}
+
+function passesColorFilter(spool, targetColorHex, sensitivity) {
+  if (!targetColorHex) return true;
+  const spoolHex = normalizeHex(spool?.colorHex);
+  if (!spoolHex) return false;
+  return colorDistance(spoolHex, targetColorHex) <= colorThresholdFromSensitivity(sensitivity);
+}
+
 function pctLeft(spool) {
   const initial = Number(spool.initialG || 0);
   const used = Number(spool.usedG || 0);
@@ -67,16 +159,20 @@ async function apiSend(path, method, body) {
 
 function renderList() {
   const q = (el("search").value || "").trim().toLowerCase();
+  const colorFilterEnabled = Boolean(el("colorFilterEnabled")?.checked);
+  const selectedColor = colorFilterEnabled ? normalizeHex(el("filterColorPicker")?.value) : null;
+  const colorSensitivity = Number(el("colorSensitivity")?.value || 0);
   const list = el("spoolList");
   list.innerHTML = "";
 
   const filtered = SPOOLS.filter(s => {
-    if (!q) return true;
+    const colorMatch = passesColorFilter(s, selectedColor, colorSensitivity);
+    if (!q) return colorMatch;
     const hay = [
       s.name, s.material, s.colorName, s.owner, s.checkedOutTo,
       s.spoolType?.material, String(s.spoolType?.odMm), String(s.spoolType?.widthMm)
     ].filter(Boolean).join(" ").toLowerCase();
-    return hay.includes(q);
+    return hay.includes(q) && colorMatch;
   });
 
   if (filtered.length === 0) {
@@ -325,6 +421,28 @@ function wireUI() {
   el("btnRefresh").addEventListener("click", refresh);
 
   el("search").addEventListener("input", renderList);
+  const colorFilterEnabled = el("colorFilterEnabled");
+  const colorFilterControls = el("colorFilterControls");
+  const filterColorPicker = el("filterColorPicker");
+  const colorSensitivity = el("colorSensitivity");
+  const colorSensitivityValue = el("colorSensitivityValue");
+
+  const syncColorFilterControls = () => {
+    const enabled = Boolean(colorFilterEnabled.checked);
+    colorFilterControls.classList.toggle("hidden", !enabled);
+    colorSensitivityValue.textContent = `${colorSensitivity.value}%`;
+  };
+
+  colorFilterEnabled.addEventListener("change", () => {
+    syncColorFilterControls();
+    renderList();
+  });
+  filterColorPicker.addEventListener("input", renderList);
+  colorSensitivity.addEventListener("input", () => {
+    syncColorFilterControls();
+    renderList();
+  });
+  syncColorFilterControls();
 
   // Color picker sync
   const colorHex = el("colorHex");
