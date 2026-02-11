@@ -1,0 +1,40 @@
+{
+  "spools": [
+    {
+      "id": "eb7fc435-7030-44d1-b972-50dd41cc08ed",
+      "name": "12345",
+      "material": "PLA",
+      "colorName": "123",
+      "colorHex": "#000000",
+      "spoolType": {
+        "material": "Cardboard",
+        "odMm": 200,
+        "widthMm": 70
+      },
+      "owner": "Doug",
+      "checkedOutTo": null,
+      "initialG": 1000.0,
+      "usedG": 0.0,
+      "price": 30.0,
+      "birthDate": "2026-02-10"
+    },
+    {
+      "id": "77723111-9c9f-42d3-9c13-780d93894205",
+      "name": "hgcvfhynh",
+      "material": "PLA",
+      "colorName": "red",
+      "colorHex": "#e60000",
+      "spoolType": {
+        "material": "Plastic",
+        "odMm": 200,
+        "widthMm": 70
+      },
+      "owner": "Doug",
+      "checkedOutTo": null,
+      "initialG": 1000.0,
+      "usedG": 0.0,
+      "price": 30.0,
+      "birthDate": "2026-02-10"
+    }
+  ]
+}
