@@ -1,10 +1,25 @@
 {
   "spools": [
     {
-      "id": "eb7fc435-7030-44d1-b972-50dd41cc08ed",
-      "name": "12345",
+      "id": "5ad72c92-a941-4747-b852-7db01e489750",
+      "name": "test1",
       "material": "PLA",
-      "colorName": "123",
+      "colors": [
+        {
+          "name": "black",
+          "hex": "#000000"
+        },
+        {
+          "name": "white",
+          "hex": "#ffffff"
+        },
+        {
+          "name": "grey",
+          "hex": "#888888"
+        }
+      ],
+      "colorArrangement": "parallel",
+      "colorName": "black / white / grey",
       "colorHex": "#000000",
       "spoolType": {
         "material": "Cardboard",
@@ -16,16 +31,31 @@
       "initialG": 1000.0,
       "usedG": 0.0,
       "price": 30.0,
-      "birthDate": "2026-02-10"
+      "birthDate": "2026-03-11"
     },
     {
-      "id": "77723111-9c9f-42d3-9c13-780d93894205",
-      "name": "hgcvfhynh",
+      "id": "8773db55-342b-4cda-bf30-b16e49986c8c",
+      "name": "test2",
       "material": "PLA",
-      "colorName": "red",
-      "colorHex": "#e60000",
+      "colors": [
+        {
+          "name": "black",
+          "hex": "#000000"
+        },
+        {
+          "name": "white",
+          "hex": "#ffffff"
+        },
+        {
+          "name": "grey",
+          "hex": "#888888"
+        }
+      ],
+      "colorArrangement": "cross-sectional",
+      "colorName": "black / white / grey",
+      "colorHex": "#000000",
       "spoolType": {
-        "material": "Plastic",
+        "material": "Cardboard",
         "odMm": 200,
         "widthMm": 70
       },
@@ -34,7 +64,7 @@
       "initialG": 1000.0,
       "usedG": 0.0,
       "price": 30.0,
-      "birthDate": "2026-02-10"
+      "birthDate": "2026-03-11"
     }
   ]
 }

@@ -614,6 +614,9 @@ label textarea {
     max-width: 100%;
     width: 100%;
   }
+  .color-grid {
+    grid-template-columns: 1fr;
+  }
   .sensitivity-value {
     text-align: left;
   }
@@ -658,8 +661,43 @@ label textarea {
   width: 60px;
   height: 60px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+  border: none;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.color-slot {
+  margin: 0;
+}
+
+.color-slot.hidden {
+  display: none;
+}
+
+.color-input-row {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.color-input-row input[name^="colorHex"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.color-input-row input[type="color"] {
+  flex: 0 0 56px;
+  width: 56px;
+  min-width: 56px;
 }
 
 .item h3 {
@@ -731,9 +769,58 @@ label textarea {
 }
 
 .quote-btn {
-  width: 100%;
-  flex: 1 1 auto;
   min-height: 42px;
+}
+
+.action-footer {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.action-footer .quote-btn {
+  width: 100%;
+  min-width: 0;
+}
+
+.action-pair {
+  width: 130px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.actions .action-pair .btn {
+  width: 100%;
+  min-width: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
+.actions .action-pair .btn:first-child {
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+  border-right-width: 0;
+}
+
+.actions .action-pair .btn:last-child {
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+  margin-left: -1px;
+}
+
+.action-icon {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .bottom-delete {

@@ -38,6 +38,154 @@ app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
 _file_lock = Lock()
 
 
+def _normalize_hex(value):
+    v = str(value or "").strip().lower()
+    if not v.startswith("#"):
+        return None
+    if len(v) == 4:
+        expanded = "".join(ch * 2 for ch in v[1:])
+        return f"#{expanded}"
+    if len(v) == 7:
+        return v
+    return None
+
+
+def _normalize_spool(spool):
+    colors = spool.get("colors")
+    normalized_colors = []
+
+    if isinstance(colors, list):
+        for entry in colors[:3]:
+            if not isinstance(entry, dict):
+                continue
+            color_name = str(entry.get("name") or "").strip()
+            color_hex = _normalize_hex(entry.get("hex"))
+            if color_name and color_hex:
+                normalized_colors.append({"name": color_name, "hex": color_hex})
+
+    if not normalized_colors:
+        legacy_name = str(spool.get("colorName") or "").strip()
+        legacy_hex = _normalize_hex(spool.get("colorHex"))
+        if legacy_name and legacy_hex:
+            normalized_colors.append({"name": legacy_name, "hex": legacy_hex})
+
+    arrangement = str(spool.get("colorArrangement") or "").strip().lower()
+    if arrangement not in ("parallel", "cross-sectional"):
+        arrangement = "parallel"
+
+    if normalized_colors:
+        spool["colors"] = normalized_colors
+        spool["colorArrangement"] = arrangement
+        spool["colorName"] = " / ".join(color["name"] for color in normalized_colors)
+        spool["colorHex"] = normalized_colors[0]["hex"]
+
+    return spool
+
+
+def _build_spool_from_payload(payload, existing_spool=None):
+    def req_str(k):
+        v = str(payload.get(k) or "").strip()
+        if not v:
+            abort(400, description=f"Missing field: {k}")
+        return v
+
+    def req_float(k):
+        try:
+            return float(payload.get(k))
+        except Exception:
+            abort(400, description=f"Invalid number: {k}")
+
+    def req_int(k):
+        try:
+            return int(payload.get(k))
+        except Exception:
+            abort(400, description=f"Invalid integer: {k}")
+
+    name = req_str("name")
+    material = req_str("material")
+    arrangement = req_str("colorArrangement")
+    if arrangement not in ("parallel", "cross-sectional"):
+        abort(400, description="Invalid color arrangement")
+
+    colors = []
+    for idx in range(1, 4):
+        name_key = f"colorName{idx}"
+        hex_key = f"colorHex{idx}"
+        raw_name = str(payload.get(name_key) or "").strip()
+        raw_hex = str(payload.get(hex_key) or "").strip()
+        if not raw_name and not raw_hex:
+            continue
+        if not raw_name:
+            abort(400, description=f"Missing field: {name_key}")
+        if not raw_hex:
+            abort(400, description=f"Missing field: {hex_key}")
+        color_hex = _normalize_hex(raw_hex)
+        if not color_hex:
+            abort(400, description=f"Invalid color hex: {hex_key}")
+        colors.append({"name": raw_name, "hex": color_hex})
+
+    if not colors:
+        abort(400, description="At least one colour is required")
+
+    spool_material = req_str("spoolMaterial")
+    spool_od_mm = req_int("spoolODmm")
+    spool_width_mm = req_int("spoolWidthmm")
+    owner = req_str("owner")
+    initial_g = req_float("initialG")
+    used_g = req_float("usedG")
+    price = req_float("price")
+
+    birth_date = str(payload.get("birthDate") or "").strip()
+    if not birth_date:
+        birth_date = (
+            existing_spool.get("birthDate")
+            if existing_spool and existing_spool.get("birthDate")
+            else date.today().isoformat()
+        )
+
+    try:
+        date.fromisoformat(birth_date)
+    except Exception:
+        abort(400, description="Invalid birthDate (use YYYY-MM-DD)")
+
+    if material not in MATERIAL_TYPES:
+        abort(400, description="Invalid material type")
+    if owner not in USERS:
+        abort(400, description="Invalid owner")
+    if initial_g <= 0:
+        abort(400, description="initialG must be > 0")
+    if used_g < 0:
+        abort(400, description="usedG must be >= 0")
+    if price < 0:
+        abort(400, description="price must be >= 0")
+
+    spool = {
+        "id": existing_spool["id"] if existing_spool else str(uuid.uuid4()),
+        "name": name,
+        "material": material,
+        "colors": colors,
+        "colorArrangement": arrangement,
+        "colorName": " / ".join(color["name"] for color in colors),
+        "colorHex": colors[0]["hex"],
+        "spoolType": {
+            "material": spool_material,
+            "odMm": spool_od_mm,
+            "widthMm": spool_width_mm,
+        },
+        "owner": owner,
+        "checkedOutTo": existing_spool.get("checkedOutTo") if existing_spool else None,
+        "initialG": float(initial_g),
+        "usedG": float(used_g),
+        "price": float(price),
+        "birthDate": birth_date,
+    }
+
+    if existing_spool and "checkedOutTo" in existing_spool:
+        spool["checkedOutTo"] = existing_spool["checkedOutTo"]
+
+    return spool
+
+
 def _get_git_build_info():
     repo_dir = os.path.dirname(os.path.abspath(__file__))
     try:
@@ -126,88 +274,14 @@ def api_meta():
 def api_list_spools():
     with _file_lock:
         data = _read_data()
-    return jsonify(data["spools"])
+    return jsonify([_normalize_spool(spool) for spool in data["spools"]])
 
 
 @app.route("/api/spools", methods=["POST"])
 @login_required
 def api_add_spool():
     payload = request.get_json(force=True) or {}
-
-    def req_str(k):
-        v = (payload.get(k) or "").strip()
-        if not v:
-            abort(400, description=f"Missing field: {k}")
-        return v
-
-    def req_float(k):
-        try:
-            return float(payload.get(k))
-        except Exception:
-            abort(400, description=f"Invalid number: {k}")
-
-    def req_int(k):
-        try:
-            return int(payload.get(k))
-        except Exception:
-            abort(400, description=f"Invalid integer: {k}")
-
-    name = req_str("name")  # e.g. "Hatchbox Black"
-    material = req_str("material")  # env dropdown
-    color_name = req_str("colorName")  # e.g. "Black"
-    color_hex = req_str("colorHex")  # e.g. "#000000"
-
-    spool_material = req_str("spoolMaterial")  # Cardboard / Plastic / None
-    spool_od_mm = req_int("spoolODmm")  # outside diameter mm
-    spool_width_mm = req_int("spoolWidthmm")  # width mm
-
-    owner = req_str("owner")  # env dropdown
-
-    initial_g = req_float("initialG")
-    used_g = req_float("usedG")
-    price = req_float("price")
-
-    birth_date = (payload.get("birthDate") or "").strip()
-    if not birth_date:
-        birth_date = date.today().isoformat()
-
-    # basic validation YYYY-MM-DD
-    try:
-        date.fromisoformat(birth_date)
-    except Exception:
-        abort(400, description="Invalid birthDate (use YYYY-MM-DD)")
-
-    if material not in MATERIAL_TYPES:
-        abort(400, description="Invalid material type")
-    if owner not in USERS:
-        abort(400, description="Invalid owner")
-
-    if not (color_hex.startswith("#") and len(color_hex) in (4, 7)):
-        abort(400, description="Invalid color hex")
-
-    if initial_g <= 0:
-        abort(400, description="initialG must be > 0")
-    if used_g < 0:
-        abort(400, description="usedG must be >= 0")
-
-    spool = {
-        "id": str(uuid.uuid4()),
-        "name": name,
-        "material": material,
-        "colorName": color_name,
-        "colorHex": color_hex,
-        "spoolType": {
-            "material": spool_material,
-            "odMm": spool_od_mm,
-            "widthMm": spool_width_mm,
-        },
-        "owner": owner,
-        "checkedOutTo": None,  # or user name
-        "initialG": float(initial_g),
-        "usedG": float(used_g),
-        "price": float(price),
-        "birthDate": birth_date,
-    }
+    spool = _build_spool_from_payload(payload)
 
     with _file_lock:
         data = _read_data()
@@ -229,8 +303,31 @@ def api_patch_spool(spool_id):
         if not spool:
             abort(404, description="Spool not found")
 
-        # Allowed updates (keep simple)
-        if "usedG" in payload:
+        full_update_fields = {
+            "name",
+            "material",
+            "colorArrangement",
+            "colorName1",
+            "colorHex1",
+            "colorName2",
+            "colorHex2",
+            "colorName3",
+            "colorHex3",
+            "spoolMaterial",
+            "spoolODmm",
+            "spoolWidthmm",
+            "owner",
+            "initialG",
+            "usedG",
+            "price",
+            "birthDate",
+        }
+
+        if any(field in payload for field in full_update_fields):
+            updated_spool = _build_spool_from_payload(payload, existing_spool=spool)
+            spool.clear()
+            spool.update(updated_spool)
+        elif "usedG" in payload:
             try:
                 used = float(payload["usedG"])
             except Exception:
@@ -249,7 +346,7 @@ def api_patch_spool(spool_id):
                     abort(400, description="Invalid user")
                 spool["checkedOutTo"] = val
 
-        if "price" in payload:
+        if "price" in payload and not any(field in payload for field in full_update_fields):
             try:
                 p = float(payload["price"])
             except Exception:
@@ -260,7 +357,7 @@ def api_patch_spool(spool_id):
 
         _write_data(data)
 
-    return jsonify(spool)
+    return jsonify(_normalize_spool(spool))
 
 
 @app.route("/api/spools/<spool_id>", methods=["DELETE"])
@@ -296,6 +393,7 @@ def api_quote():
             abort(404, description="Spool not found")
 
     # cost per gram = price / initialG
+    spool = _normalize_spool(spool)
     cost_per_g = (spool["price"] / spool["initialG"]) if spool["initialG"] > 0 else 0.0
     cost = cost_per_g * proposed_g
 

@@ -1,4 +1,5 @@
 let SPOOLS = [];
+let syncColorCountForModal = () => {};
 
 function el(id) { return document.getElementById(id); }
 
@@ -22,6 +23,24 @@ function hexToRgb(hex) {
     g: (intVal >> 8) & 255,
     b: intVal & 255
   };
+}
+
+function rgbToHex(r, g, b) {
+  const toHex = (value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function mixHex(hexA, hexB, ratio = 0.5) {
+  const a = hexToRgb(hexA);
+  const b = hexToRgb(hexB);
+  if (!a || !b) return normalizeHex(hexA) || normalizeHex(hexB) || "#000000";
+
+  const t = Math.max(0, Math.min(1, Number(ratio) || 0));
+  return rgbToHex(
+    a.r + ((b.r - a.r) * t),
+    a.g + ((b.g - a.g) * t),
+    a.b + ((b.b - a.b) * t)
+  );
 }
 
 function rgbToHsl(r, g, b) {
@@ -87,11 +106,107 @@ function colorThresholdFromSensitivity(sensitivity) {
   return 0.04 + (s * 0.92);
 }
 
+function getSpoolColors(spool) {
+  const colors = Array.isArray(spool?.colors) ? spool.colors : [];
+  const normalized = colors
+    .map((color) => ({
+      name: String(color?.name || "").trim(),
+      hex: normalizeHex(color?.hex)
+    }))
+    .filter((color) => color.name && color.hex)
+    .slice(0, 3);
+
+  if (normalized.length > 0) return normalized;
+
+  const legacyHex = normalizeHex(spool?.colorHex);
+  const legacyName = String(spool?.colorName || "").trim();
+  return legacyName && legacyHex ? [{ name: legacyName, hex: legacyHex }] : [];
+}
+
+function getSpoolArrangement(spool) {
+  return spool?.colorArrangement === "cross-sectional" ? "cross-sectional" : "parallel";
+}
+
+function formatArrangementLabel(arrangement) {
+  return arrangement === "cross-sectional" ? "Cross Sectional" : "Parallel";
+}
+
+function buildLinearSmoothStops(colors) {
+  if (colors.length === 1) return colors[0].hex;
+
+  const stops = [`${colors[0].hex} 0%`];
+  const segmentSize = 100 / (colors.length - 1);
+  const solidPortion = 0.58;
+  const transitionPortion = 1 - solidPortion;
+
+  for (let index = 0; index < colors.length - 1; index += 1) {
+    const current = colors[index].hex;
+    const next = colors[index + 1].hex;
+    const start = index * segmentSize;
+    const solidEnd = start + (segmentSize * solidPortion);
+    const mid = solidEnd + ((segmentSize * transitionPortion) / 2);
+    const end = start + segmentSize;
+    const blend = mixHex(current, next, 0.5);
+
+    stops.push(`${current} ${Number(solidEnd.toFixed(2))}%`);
+    stops.push(`${blend} ${Number(mid.toFixed(2))}%`);
+    stops.push(`${next} ${Number(end.toFixed(2))}%`);
+  }
+
+  return stops.join(", ");
+}
+
+function buildConicSmoothStops(colors) {
+  if (colors.length === 1) return colors[0].hex;
+
+  const stops = [];
+  const segmentSize = 100 / colors.length;
+  const solidPortion = 0.58;
+  const transitionPortion = 1 - solidPortion;
+
+  for (let index = 0; index < colors.length; index += 1) {
+    const current = colors[index].hex;
+    const next = colors[(index + 1) % colors.length].hex;
+    const start = index * segmentSize;
+    const solidEnd = start + (segmentSize * solidPortion);
+    const mid = solidEnd + ((segmentSize * transitionPortion) / 2);
+    const end = start + segmentSize;
+    const blend = mixHex(current, next, 0.5);
+
+    if (index === 0) {
+      stops.push(`${current} 0%`);
+    }
+
+    stops.push(`${current} ${Number(solidEnd.toFixed(2))}%`);
+    stops.push(`${blend} ${Number(mid.toFixed(2))}%`);
+    stops.push(`${next} ${Number(end.toFixed(2))}%`);
+  }
+
+  return stops.join(", ");
+}
+
+function buildSwatchBackground(spool) {
+  const colors = getSpoolColors(spool);
+  if (colors.length === 0) return "#000000";
+  if (colors.length === 1) return colors[0].hex;
+
+  if (getSpoolArrangement(spool) === "cross-sectional") {
+    return `conic-gradient(from -90deg, ${buildConicSmoothStops(colors)})`;
+  }
+  return `linear-gradient(180deg, ${buildLinearSmoothStops(colors)})`;
+}
+
+function formatColorBadge(spool) {
+  const colors = getSpoolColors(spool);
+  if (colors.length === 0) return "No colour";
+  return colors.map((color) => `${color.name} (${color.hex})`).join(" / ");
+}
+
 function passesColorFilter(spool, targetColorHex, sensitivity) {
   if (!targetColorHex) return true;
-  const spoolHex = normalizeHex(spool?.colorHex);
-  if (!spoolHex) return false;
-  return colorDistance(spoolHex, targetColorHex) <= colorThresholdFromSensitivity(sensitivity);
+  return getSpoolColors(spool).some((color) =>
+    colorDistance(color.hex, targetColorHex) <= colorThresholdFromSensitivity(sensitivity)
+  );
 }
 
 function pctLeft(spool) {
@@ -157,6 +272,91 @@ async function apiSend(path, method, body) {
   return await r.json();
 }
 
+function todayIsoDate() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function resetSpoolForm() {
+  const form = el("addForm");
+  form.reset();
+  el("spoolId").value = "";
+  el("spoolModalTitle").textContent = "Add Spool";
+  el("spoolSubmitBtn").textContent = "Save";
+  el("birthDate").value = todayIsoDate();
+  el("colorArrangement").value = "parallel";
+  el("colorCount").value = "1";
+  el("colorHex1").value = "#000000";
+  el("colorPicker1").value = "#000000";
+  el("colorHex2").value = "#ffffff";
+  el("colorPicker2").value = "#ffffff";
+  el("colorHex3").value = "#888888";
+  el("colorPicker3").value = "#888888";
+  el("colorName1").value = "";
+  el("colorName2").value = "";
+  el("colorName3").value = "";
+}
+
+function getSpoolFormPayload(form) {
+  const fd = new FormData(form);
+  const payload = Object.fromEntries(fd.entries());
+
+  payload.spoolODmm = Number(payload.spoolODmm);
+  payload.spoolWidthmm = Number(payload.spoolWidthmm);
+  payload.initialG = Number(payload.initialG);
+  payload.usedG = Number(payload.usedG);
+  payload.price = Number(payload.price);
+
+  return payload;
+}
+
+function populateSpoolForm(spool) {
+  const colors = getSpoolColors(spool);
+
+  el("spoolId").value = spool.id;
+  el("spoolModalTitle").textContent = "Edit Spool";
+  el("spoolSubmitBtn").textContent = "Update";
+  el("addForm").elements.name.value = spool.name || "";
+  el("addForm").elements.material.value = spool.material || "";
+  el("addForm").elements.colorArrangement.value = getSpoolArrangement(spool);
+  el("addForm").elements.colorCount.value = String(colors.length || 1);
+  el("addForm").elements.spoolMaterial.value = spool.spoolType?.material || "Cardboard";
+  el("addForm").elements.spoolODmm.value = spool.spoolType?.odMm ?? 200;
+  el("addForm").elements.spoolWidthmm.value = spool.spoolType?.widthMm ?? 70;
+  el("addForm").elements.owner.value = spool.owner || "";
+  el("addForm").elements.initialG.value = Number(spool.initialG ?? 1000);
+  el("addForm").elements.usedG.value = Number(spool.usedG ?? 0);
+  el("addForm").elements.price.value = Number(spool.price ?? 0).toFixed(2);
+  el("addForm").elements.birthDate.value = spool.birthDate || todayIsoDate();
+
+  const defaults = ["#000000", "#ffffff", "#888888"];
+  for (let idx = 1; idx <= 3; idx += 1) {
+    const color = colors[idx - 1];
+    const nameInput = el(`colorName${idx}`);
+    const hexInput = el(`colorHex${idx}`);
+    const picker = el(`colorPicker${idx}`);
+    nameInput.value = color?.name || "";
+    hexInput.value = color?.hex || defaults[idx - 1];
+    picker.value = color?.hex || defaults[idx - 1];
+  }
+}
+
+function openAddSpoolModal(syncColorCount) {
+  resetSpoolForm();
+  syncColorCount();
+  openModal("modalAdd");
+}
+
+function openEditSpoolModal(spool, syncColorCount) {
+  resetSpoolForm();
+  populateSpoolForm(spool);
+  syncColorCount();
+  openModal("modalAdd");
+}
+
 function renderList() {
   const q = (el("search").value || "").trim().toLowerCase();
   const colorFilterEnabled = Boolean(el("colorFilterEnabled")?.checked);
@@ -168,8 +368,11 @@ function renderList() {
   const filtered = SPOOLS.filter(s => {
     const colorMatch = passesColorFilter(s, selectedColor, colorSensitivity);
     if (!q) return colorMatch;
+    const colorSearchText = getSpoolColors(s)
+      .flatMap((color) => [color.name, color.hex])
+      .join(" ");
     const hay = [
-      s.name, s.material, s.colorName, s.owner, s.checkedOutTo,
+      s.name, s.material, colorSearchText, s.owner, s.checkedOutTo,
       s.spoolType?.material, String(s.spoolType?.odMm), String(s.spoolType?.widthMm)
     ].filter(Boolean).join(" ").toLowerCase();
     return hay.includes(q) && colorMatch;
@@ -191,7 +394,7 @@ function renderList() {
 
     const sw = document.createElement("div");
     sw.className = "swatch";
-    sw.style.background = s.colorHex;
+    sw.style.background = buildSwatchBackground(s);
 
     const mid = document.createElement("div");
     mid.innerHTML = `
@@ -201,7 +404,8 @@ function renderList() {
 
       <div class="badges">
         <span class="badge">${escapeHtml(s.material)}</span>
-        <span class="badge">${escapeHtml(s.colorName)} (${escapeHtml(s.colorHex)})</span>
+        <span class="badge">${escapeHtml(formatColorBadge(s))}</span>
+        <span class="badge">${escapeHtml(formatArrangementLabel(getSpoolArrangement(s)))}</span>
         <span class="badge">${escapeHtml(s.spoolType.material)} • Ø${escapeHtml(String(s.spoolType.odMm))}mm • W${escapeHtml(String(s.spoolType.widthMm))}mm</span>
       </div>
 
@@ -302,10 +506,31 @@ function renderList() {
       el("quoteResult").innerHTML = "";
     });
 
-    // Delete
+    const editBtn = document.createElement("button");
+    editBtn.className = "btn";
+    editBtn.setAttribute("title", "Edit spool");
+    editBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true">
+        <path d="M4 20l4.2-.9L19 8.3 15.7 5 4.9 15.8z" />
+        <path d="M13.9 6.8l3.3 3.3" />
+      </svg>
+      <span class="sr-only">Edit</span>
+    `;
+    editBtn.addEventListener("click", () => openEditSpoolModal(s, syncColorCountForModal));
+
     const delBtn = document.createElement("button");
     delBtn.className = "btn fixed-btn bottom-delete";
-    delBtn.textContent = "Delete";
+    delBtn.setAttribute("title", "Delete spool");
+    delBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" class="action-icon" aria-hidden="true">
+        <path d="M5 7h14" />
+        <path d="M9 7V4h6v3" />
+        <path d="M8 7l1 12h6l1-12" />
+        <path d="M10 10v6" />
+        <path d="M14 10v6" />
+      </svg>
+      <span class="sr-only">Delete</span>
+    `;
     delBtn.addEventListener("click", async () => {
       if (!confirm("Delete this spool?")) return;
       try {
@@ -320,15 +545,15 @@ function renderList() {
     actions.appendChild(coRow);
 
     const bottomRow = document.createElement("div");
-    bottomRow.className = "row";
-    bottomRow.style.justifyContent = "space-between";
-    bottomRow.style.gap = "8px";
+    bottomRow.className = "action-footer";
 
-    qBtn.style.flex = "1 1 auto";
-    delBtn.style.flex = "0 0 auto";
+    const actionPair = document.createElement("div");
+    actionPair.className = "action-pair";
 
     bottomRow.appendChild(qBtn);
-    bottomRow.appendChild(delBtn);
+    actionPair.appendChild(editBtn);
+    actionPair.appendChild(delBtn);
+    bottomRow.appendChild(actionPair);
 
     actions.appendChild(bottomRow);
 
@@ -413,7 +638,7 @@ function wireUI() {
     btn.addEventListener("click", () => closeModal(btn.getAttribute("data-close")));
   });
 
-  el("btnAdd").addEventListener("click", () => openModal("modalAdd"));
+  el("btnAdd").addEventListener("click", () => openAddSpoolModal(syncColorCount));
   el("btnQuote").addEventListener("click", () => {
     openModal("modalQuote");
     el("quoteResult").innerHTML = "";
@@ -444,42 +669,50 @@ function wireUI() {
   });
   syncColorFilterControls();
 
+  const colorCount = el("colorCount");
+  const syncColorCount = () => {
+    const activeCount = Number(colorCount?.value || 1);
+    document.querySelectorAll(".color-slot").forEach((slot) => {
+      const slotNumber = Number(slot.getAttribute("data-color-slot") || "0");
+      const isVisible = slotNumber <= activeCount;
+      slot.classList.toggle("hidden", !isVisible);
+      slot.querySelectorAll("input").forEach((input) => {
+        const shouldRequire = isVisible && (input.name === `colorName${slotNumber}` || input.name === `colorHex${slotNumber}`);
+        input.disabled = !isVisible;
+        input.required = shouldRequire;
+      });
+    });
+  };
+  syncColorCountForModal = syncColorCount;
+  colorCount.addEventListener("change", syncColorCount);
+  syncColorCount();
+
   // Color picker sync
-  const colorHex = el("colorHex");
-  const colorPicker = el("colorPicker");
-  colorPicker.addEventListener("input", () => { colorHex.value = colorPicker.value; });
-  colorHex.addEventListener("input", () => {
-    const v = colorHex.value.trim();
-    if (v.startsWith("#")) colorPicker.value = v;
-  });
+  for (let idx = 1; idx <= 3; idx += 1) {
+    const colorHex = el(`colorHex${idx}`);
+    const colorPicker = el(`colorPicker${idx}`);
+    colorPicker.addEventListener("input", () => { colorHex.value = colorPicker.value; });
+    colorHex.addEventListener("input", () => {
+      const v = colorHex.value.trim();
+      if (v.startsWith("#")) colorPicker.value = v;
+    });
+  }
 
   // Add spool form
   el("addForm").addEventListener("submit", async (ev) => {
     ev.preventDefault();
-    const fd = new FormData(ev.target);
-    const payload = Object.fromEntries(fd.entries());
-
-    // Convert numeric fields
-    payload.spoolODmm = Number(payload.spoolODmm);
-    payload.spoolWidthmm = Number(payload.spoolWidthmm);
-    payload.initialG = Number(payload.initialG);
-    payload.usedG = Number(payload.usedG);
-    payload.price = Number(payload.price);
+    const payload = getSpoolFormPayload(ev.target);
+    const spoolId = payload.spoolId;
+    delete payload.spoolId;
 
     try {
-      await apiSend("/api/spools", "POST", payload);
-      ev.target.reset();
-      // reset birthDate to today
-      const d = new Date();
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-      const bd = document.getElementById("birthDate");
-      if (bd) bd.value = `${yyyy}-${mm}-${dd}`;
-
-      // reset color defaults
-      el("colorHex").value = "#000000";
-      el("colorPicker").value = "#000000";
+      if (spoolId) {
+        await apiSend(`/api/spools/${spoolId}`, "PATCH", payload);
+      } else {
+        await apiSend("/api/spools", "POST", payload);
+      }
+      resetSpoolForm();
+      syncColorCount();
       closeModal("modalAdd");
       await refresh();
     } catch (e) {
@@ -514,6 +747,9 @@ function wireUI() {
       if (e.target === m) m.classList.remove("show");
     });
   });
+
+  resetSpoolForm();
+  syncColorCount();
 }
 
 (async function init() {

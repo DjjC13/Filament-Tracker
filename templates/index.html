@@ -77,11 +77,12 @@
   <div id="modalAdd" class="modal">
     <div class="modal-content card">
       <div class="row space">
-        <h2>Add Spool</h2>
+        <h2 id="spoolModalTitle">Add Spool</h2>
         <button class="btn ghost" data-close="modalAdd">Close</button>
       </div>
 
       <form id="addForm" class="grid two">
+        <input type="hidden" name="spoolId" id="spoolId" />
         <label>
           Name (brand + color, etc.)
           <input name="name" required placeholder="e.g. Polymaker PLA Pro - Black" />
@@ -97,17 +98,62 @@
         </label>
 
         <label>
-          Color Name
-          <input name="colorName" required placeholder="e.g. Black" />
+          Colour Arrangement
+          <select name="colorArrangement" id="colorArrangement" required>
+            <option value="parallel">Parallel</option>
+            <option value="cross-sectional">Cross Sectional</option>
+          </select>
         </label>
 
         <label>
-          Color (hex)
-          <div class="row">
-            <input name="colorHex" id="colorHex" required value="#000000" />
-            <input type="color" id="colorPicker" value="#000000" />
-          </div>
+          Number of Colours
+          <select name="colorCount" id="colorCount" required>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
         </label>
+
+        <div class="color-grid" style="grid-column: 1 / -1;">
+          <label class="color-slot" data-color-slot="1">
+            Colour 1 Name
+            <input name="colorName1" id="colorName1" required placeholder="e.g. Black" />
+          </label>
+
+          <label class="color-slot" data-color-slot="1">
+            Colour 1 (hex)
+            <div class="row color-input-row">
+              <input name="colorHex1" id="colorHex1" required value="#000000" />
+              <input type="color" id="colorPicker1" value="#000000" />
+            </div>
+          </label>
+
+          <label class="color-slot" data-color-slot="2">
+            Colour 2 Name
+            <input name="colorName2" id="colorName2" placeholder="Optional" />
+          </label>
+
+          <label class="color-slot" data-color-slot="2">
+            Colour 2 (hex)
+            <div class="row color-input-row">
+              <input name="colorHex2" id="colorHex2" value="#ffffff" />
+              <input type="color" id="colorPicker2" value="#ffffff" />
+            </div>
+          </label>
+
+          <label class="color-slot" data-color-slot="3">
+            Colour 3 Name
+            <input name="colorName3" id="colorName3" placeholder="Optional" />
+          </label>
+
+          <label class="color-slot" data-color-slot="3">
+            Colour 3 (hex)
+            <div class="row color-input-row">
+              <input name="colorHex3" id="colorHex3" value="#888888" />
+              <input type="color" id="colorPicker3" value="#888888" />
+            </div>
+          </label>
+        </div>
 
         <label>
           Spool Material
@@ -158,7 +204,7 @@
         </label>
 
         <div class="row" style="grid-column: 1 / -1; justify-content: flex-end;">
-          <button class="btn primary" type="submit">Save</button>
+          <button class="btn primary" id="spoolSubmitBtn" type="submit">Save</button>
         </div>
       </form>
     </div>
